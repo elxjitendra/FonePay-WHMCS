@@ -31,8 +31,8 @@ if (!$gatewayParams['type']) {
 }
 
 
-$PID                = $gatewayParams['PID'];
-$sharedSecretKey    = $gatewayParams['sharedSecretKey'];
+$PID = $gatewayParams['PID'];
+$sharedSecretKey = $gatewayParams['sharedSecretKey'];
 $requestData = [
     'PRN' => $_GET['PRN'],
     'PID' => $PID,
@@ -47,17 +47,16 @@ curl_setopt($ch, CURLOPT_URL, $_GET['RU'].'?'.http_build_query($requestData));
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $responseXML = curl_exec($ch);
-
-$message = "Payment validation fail!";
+$message = null;
 if($response = simplexml_load_string($responseXML)){
 	if($response->success == 'true'){
-        $success = true;
-        $message = $response->message;
-	    // echo "Payment Verifcation Completed: ".$response->message;
+	    $success = true;
+	    $message = $response->message;
+	   // echo "Payment Verifcation Completed: ".$response->message;
 	}else{
-        $success = false;
-        $message = $response->message;
-	    // echo "Payment Verifcation Failed: ".$response->message; exit;
+	    $success = false;
+	    $message = $response->message;
+	   // echo "Payment Verifcation Failed: ".$response->message;
 	}
 }
    
@@ -65,13 +64,20 @@ if($response = simplexml_load_string($responseXML)){
 
 // Retrieve data returned in payment gateway callback
 // Varies per payment gateway
-$invoiceId      = $_GET['inv'];
-$transactionId  = $_GET['BID'];
-$paymentAmount  = $_GET['AMT'];
-$paymentFee     = 0;
+$invoiceId = $_GET['inv'];
+$transactionId = $_GET['BID'];
+$paymentAmount = $_GET['AMT'];
+$currencyCode = $_GET['currency'];
+$paymentFee = 0;
+
 
 $transactionStatus = $success ? 'Success' : 'Failure';
 
+if( $currencyCode == 'USD'){
+    $usdAmt = $_GET['usdamt'];
+    if( isset($usdAmt))
+        $paymentAmount = $usdAmt;
+}
 /**
  * Validate Callback Invoice ID.
  *
@@ -85,7 +91,7 @@ $transactionStatus = $success ? 'Success' : 'Failure';
  * @param int $invoiceId Invoice ID
  * @param string $gatewayName Gateway Name
  */
-$invoiceId = checkCbInvoiceID($invoiceId, $gatewayParams['name']);
+// $invoiceId = checkCbInvoiceID($invoiceId, $gatewayParams['name']);
 $invoiceURL = $_GET['vurl'];
 
 /**
@@ -122,15 +128,12 @@ if ($success) {
         $paymentFee,
         $gatewayModuleName
     );
-    /**
-     * redirect to invoice page
-     */
-    if( isset($invoiceURL)){
-        $invoiceURL = $invoiceURL ."=". $invoiceId. "&msg=". $message;
-        echo '<script>';
-            echo "location.href='". $invoiceURL. "'";
-        echo "</script>";
-        exit;
-    }
+}
 
+if( isset($invoiceURL)){
+    $invoiceURL = $invoiceURL ."=". $invoiceId. "&msg=". $message;
+    echo '<script>';
+        echo "location.href='". $invoiceURL. "'";
+    echo "</script>";
+    exit;
 }

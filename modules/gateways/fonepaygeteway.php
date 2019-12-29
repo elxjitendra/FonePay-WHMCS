@@ -102,6 +102,18 @@ function fonepaygeteway_config()
     );
 }
 
+function currency_converter($amount, $from_code, $to_code){
+
+	if ($from_code != $to_code){
+    	$from = mysql_fetch_array(select_query("tblcurrencies", "id", array("code"=>$from_code)));
+    	$to = mysql_fetch_array(select_query("tblcurrencies", "id", array("code"=>$to_code)));
+    	if(!(empty($from) or empty($to))){
+    		$amount = convertCurrency($amount, $from['id'], $to['id']);
+    	}
+	}
+	return $amount;
+}
+
 /**
  * Payment link.
  *
@@ -141,34 +153,54 @@ function fonepaygeteway_link($params){
     // $phone = $params['clientdetails']['phonenumber'];
 
     // System Parameters
-    $companyName    = $params['companyname'];
-    $systemUrl      = $params['systemurl'];
-    $returnUrl      = $params['returnurl'];
-    $langPayNow     = $params['langpaynow'];
+    $companyName = $params['companyname'];
+    $systemUrl = $params['systemurl'];
+    $returnUrl = $params['returnurl'];
+    $langPayNow = $params['langpaynow'];
     $moduleDisplayName = $params['name'];
-    $moduleName     = $params['paymentmethod'];
-    $whmcsVersion   = $params['whmcsVersion'];
+    $moduleName = $params['paymentmethod'];
+    $whmcsVersion = $params['whmcsVersion'];
 
-    $url            = 'https://clientapi.fonepay.com/api/merchantRequest';
-    if( $testMode ) $url = 'https://dev-clientapi.fonepay.com/api/merchantRequest';
+    $url = 'https://clientapi.fonepay.com/api/merchantRequest';
+    $PRN =  uniqid();
     
-    $prn                =  uniqid();
-    $postfields         = array();
-    $postfields['PID']  = $accountId;
-    $postfields['MD']   ='P';
-    $postfields['PRN']  = $prn;
-    $postfields['R1']   = $description;
-    $postfields['R2']   = 'payment';
-    $postfields['AMT']  = $amount;
-    $postfields['CRN']  = $currencyCode;
-    $postfields['RU']   = $systemUrl . '/modules/gateways/callback/' . $moduleName . '.php?PRN='.$prn.'&inv='. $invoiceId. "&vurl=". $returnUrl;
+    $customReturnURL = $systemUrl . '/modules/gateways/callback/' . $moduleName . '.php?PRN='.$PRN.'&inv='. $invoiceId. "&vurl=". $returnUrl. "&currency=". $currencyCode;
+    $usdAmount = null;
+    //alwasy convert USD to NPR
+    if( $currencyCode == 'USD'){
+        $usdAmount = $amount;
+        $amount = currency_converter($amount, $currencyCode, "NPR");
+        $customReturnURL = $customReturnURL. "&usdamt=". $usdAmount;    
+    }
     
+    $postfields = array();
+    $postfields['PID'] = $accountId;
+    $postfields['MD'] ='P';
+    $postfields['PRN'] = $PRN;
+    $postfields['R1'] = $description;
+    $postfields['R2'] = 'payment';
+    $postfields['AMT'] = $amount;
+    $postfields['CRN'] = 'NPR';
+    $postfields['RU'] = $customReturnURL;
+    // $postfields['RU'] = $returnUrl;
     
-    $date               = date('m/d/Y');
-    $dv                 = hash_hmac('sha512', $accountId.','.$postfields['MD'].','.$prn.','.$postfields['AMT'].','.$postfields['CRN'].','.$date.','.$postfields['R1'].','.$postfields['R2'].','.$postfields['RU'], $sharedSecretKey);
+    // $postfields['first_name'] = $firstname;
+    // $postfields['last_name'] = $lastname;
+    // $postfields['email'] = $email;
+    // $postfields['address1'] = $address1;
+    // $postfields['address2'] = $address2;
+    // $postfields['city'] = $city;
+    // $postfields['state'] = $state;
+    // $postfields['postcode'] = $postcode;
+    // $postfields['country'] = $country;
+    // $postfields['phone'] = $phone;
     
-    $postfields['DT']   = $date;
-    $postfields['DV']   = $dv;
+    $DT = date('m/d/Y');
+    
+    $DV = hash_hmac('sha512', $accountId.','.$postfields['MD'].','.$PRN.','.$postfields['AMT'].','.$postfields['CRN'].','.$DT.','.$postfields['R1'].','.$postfields['R2'].','.$postfields['RU'], $sharedSecretKey);
+    
+    $postfields['DT'] = $DT;
+    $postfields['DV'] = $DV;
     
 
     $htmlOutput = '<form method="post" action="' . $url . '">';
@@ -180,7 +212,6 @@ function fonepaygeteway_link($params){
 
     return $htmlOutput;
 }
-
 /**
  * Refund transaction.
  *
