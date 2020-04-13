@@ -50,6 +50,7 @@ possible.
 - [API Documentation](https://developers.whmcs.com/api/)
 
 [WHMCS Limited](https://www.whmcs.com)
+[Tested Live eHostingServer](https://www.ehostingserver.com)
 
 ## Test Server url
 
